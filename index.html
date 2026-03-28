@@ -559,6 +559,63 @@
       color: var(--text-muted);
     }
 
+    /* ---- Mobile countdown fix: < 480px ---- */
+    @media (max-width: 479px) {
+      :root {
+        --slot-w: 44px;
+        --slot-h: 58px;
+        --slot-fs: 32px;
+        --slot-sep-fs: 20px;
+      }
+      .slot-clock-orbit {
+        overflow: visible;
+        padding: 1.25rem 12px 1.1rem;
+      }
+      .slot-clock-scaler {
+        transform: none !important;
+      }
+      .slot-clock {
+        gap: 4px;
+        flex-wrap: nowrap;
+      }
+      .slot-digits-row {
+        gap: 3px;
+      }
+      .slot-unit-label {
+        font-size: 9px;
+        letter-spacing: 0.12em;
+      }
+      .slot-sep {
+        padding: 0 1px;
+      }
+    }
+
+    /* ---- Extra-small screens: < 360px ---- */
+    @media (max-width: 359px) {
+      :root {
+        --slot-w: 36px;
+        --slot-h: 50px;
+        --slot-fs: 26px;
+        --slot-sep-fs: 16px;
+      }
+      .slot-clock-orbit {
+        padding: 1rem 8px 0.9rem;
+      }
+      .slot-clock {
+        gap: 2px;
+      }
+      .slot-digits-row {
+        gap: 2px;
+      }
+      .slot-unit-label {
+        font-size: 9px;
+        letter-spacing: 0.1em;
+      }
+      .slot-sep {
+        padding: 0;
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .slot-strip {
         transition-duration: 0.01ms !important;

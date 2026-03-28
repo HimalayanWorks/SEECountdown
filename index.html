@@ -22,20 +22,11 @@
       --radius: 14px;
       --radius-sm: 10px;
       --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-      --slot-w: 52px;
-      --slot-h: 68px;
-      --slot-fs: 40px;
-      --slot-sep-fs: 32px;
-      --clock-row-min: 600px;
-    }
-    @media (min-width: 480px) {
-      :root {
-        --slot-w: 80px;
-        --slot-h: 100px;
-        --slot-fs: 64px;
-        --slot-sep-fs: 32px;
-        --clock-row-min: 880px;
-      }
+      --slot-w: clamp(32px, 8vw, 80px);
+      --slot-h: clamp(45px, 11vw, 100px);
+      --slot-fs: clamp(24px, 6vw, 64px);
+      --slot-sep-fs: clamp(14px, 3vw, 32px);
+      --slot-gap: clamp(2px, 1vw, 8px);
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -111,9 +102,10 @@
 
     /* Slot / rolling digit clock — single row */
     .slot-clock-orbit {
-      max-width: 100%;
+      box-sizing: border-box;
+      width: 100%;
       margin: 0 auto 1.25rem;
-      padding: 1.5rem max(10px, env(safe-area-inset-left)) 1.35rem max(10px, env(safe-area-inset-right));
+      padding: 16px;
       border-radius: 20px;
       background: linear-gradient(165deg, rgba(22, 20, 40, 0.55) 0%, rgba(12, 12, 22, 0.4) 100%);
       border: 1px solid rgba(139, 92, 246, 0.18);
@@ -124,22 +116,11 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.06);
       overflow: hidden;
     }
-    @media (min-width: 480px) {
-      .slot-clock-orbit {
-        padding: 1.75rem 1.25rem 1.5rem;
-      }
-    }
 
     .slot-clock-scaler {
       display: flex;
       justify-content: center;
       width: 100%;
-    }
-    @media (max-width: 920px) {
-      .slot-clock-scaler {
-        transform: scale(min(1, calc((100vw - 24px) / var(--clock-row-min))));
-        transform-origin: top center;
-      }
     }
 
     .slot-clock {
@@ -147,11 +128,8 @@
       flex-wrap: nowrap;
       align-items: flex-start;
       justify-content: center;
-      gap: 0.2rem;
+      gap: var(--slot-gap);
       flex-shrink: 0;
-    }
-    @media (min-width: 480px) {
-      .slot-clock { gap: 0.35rem; }
     }
 
     .slot-unit {
@@ -163,15 +141,12 @@
     }
     .slot-digits-row {
       display: flex;
-      gap: 0.15rem;
+      gap: var(--slot-gap);
       flex-shrink: 0;
-    }
-    @media (min-width: 480px) {
-      .slot-digits-row { gap: 0.25rem; }
     }
 
     .slot-unit-label {
-      font-size: 0.72rem;
+      font-size: clamp(8px, 1.8vw, 12px);
       text-transform: uppercase;
       letter-spacing: 0.2em;
       color: #b4afc9;
@@ -559,61 +534,1182 @@
       color: var(--text-muted);
     }
 
-    /* ---- Mobile countdown fix: < 480px ---- */
-    @media (max-width: 479px) {
-      :root {
-        --slot-w: 44px;
-        --slot-h: 58px;
-        --slot-fs: 32px;
-        --slot-sep-fs: 20px;
-      }
-      .slot-clock-orbit {
-        overflow: visible;
-        padding: 1.25rem 12px 1.1rem;
-      }
-      .slot-clock-scaler {
-        transform: none !important;
-      }
-      .slot-clock {
-        gap: 4px;
-        flex-wrap: nowrap;
-      }
-      .slot-digits-row {
-        gap: 3px;
-      }
-      .slot-unit-label {
-        font-size: 9px;
-        letter-spacing: 0.12em;
+    @media (prefers-reduced-motion: reduce) {
+      .slot-strip {
+        transition-duration: 0.01ms !important;
       }
       .slot-sep {
-        padding: 0 1px;
+        animation: none;
+        opacity: 0.85;
+      }
+      .exam-card, header, .countdown-section {
+        animation: none;
+      }
+      .exam-card.is-today-hero {
+        animation: none;
       }
     }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh" aria-hidden="true"></div>
+  <div class="wrap">
+    <header>
+      <h1>SEE 2082 Exam Hub</h1>
+      <p>National Examination Board · Countdown, schedule &amp; marks</p>
+    </header>
 
-    /* ---- Extra-small screens: < 360px ---- */
-    @media (max-width: 359px) {
-      :root {
-        --slot-w: 36px;
-        --slot-h: 50px;
-        --slot-fs: 26px;
-        --slot-sep-fs: 16px;
+    <section class="countdown-section" aria-labelledby="cd-heading">
+      <h2 id="cd-heading">Countdown</h2>
+      <div id="countdownActive">
+        <div class="slot-clock-orbit">
+          <div class="slot-clock-scaler">
+            <div class="slot-clock" id="slotClock" aria-live="polite"></div>
+          </div>
+        </div>
+        <div id="nextExamCard" class="next-exam-card">
+          <span class="next-exam-badge">NEXT EXAM</span>
+          <p class="next-exam-name" id="nextExamName"></p>
+          <p class="next-exam-meta" id="nextExamMeta"></p>
+        </div>
+        <p class="npt-note">Countdown uses Nepal Time (NPT, UTC+5:45). Exams start at 8:00 AM NPT.</p>
+      </div>
+      <div id="countdownDone" class="countdown-done" style="display:none;">All scheduled exams have finished. Best of luck with your results!</div>
+    </section>
+
+    <div id="scheduleBlock" class="hidden">
+      <article id="todayHero" class="exam-card is-today-hero hidden" aria-labelledby="today-hero-title">
+        <div class="exam-card-head">
+          <div>
+            <span class="badge-today">TODAY&apos;S EXAM</span>
+            <div class="exam-date" id="todayHeroDate"></div>
+            <h3 id="today-hero-title"></h3>
+            <div class="exam-time" id="todayHeroTime"></div>
+          </div>
+        </div>
+      </article>
+
+      <div id="pastSection" class="hidden">
+        <h2 class="section-title" id="pastTitle">Past exams</h2>
+        <div class="cards" id="pastCards"></div>
+      </div>
+    </div>
+
+    <section id="gpaSection" class="gpa-section" aria-labelledby="gpa-heading">
+      <h2 id="gpa-heading">GPA estimator</h2>
+      <p class="gpa-lead">Predicted totals = theory + full practical. Grades are out of 100 (NEB-style bands).</p>
+      <div class="gpa-overall" id="gpaOverall">—</div>
+      <div class="gpa-table-wrap">
+        <table class="gpa-table" id="gpaTable">
+          <thead>
+            <tr><th>Subject</th><th>Total</th><th>Grade</th><th>GPA</th></tr>
+          </thead>
+          <tbody id="gpaBody"></tbody>
+        </table>
+      </div>
+      <p id="gpaIncomplete" class="gpa-incomplete" style="display:none;"></p>
+      <p id="gpaWarning" class="gpa-warning" style="display:none;"></p>
+      <div id="gpaCelebrate" class="gpa-celebrate hidden"></div>
+    </section>
+
+    <footer>
+      Theory marks are saved on this device only (localStorage). Good luck with your SEE 2082 papers.
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const NEPAL_TZ = "Asia/Kathmandu";
+      const STORAGE_KEY = "see2082_theory_marks_v1";
+      const LAST_EXAM_DATE = "2026-04-09";
+
+      const exams = [
+        { id: "en", name: "Compulsory English", date: "2026-04-02", start: "08:00", end: "11:00", theoryMax: 75, practicalFull: 25 },
+        { id: "ne", name: "Compulsory Nepali", date: "2026-04-03", start: "08:00", end: "11:00", theoryMax: 75, practicalFull: 25 },
+        { id: "ma", name: "Compulsory Mathematics", date: "2026-04-05", start: "08:00", end: "11:00", theoryMax: 75, practicalFull: 25 },
+        { id: "sc", name: "Science & Technology", date: "2026-04-06", start: "08:00", end: "11:00", theoryMax: 75, practicalFull: 25 },
+        { id: "so", name: "Social Studies", date: "2026-04-07", start: "08:00", end: "11:00", theoryMax: 75, practicalFull: 25 },
+        { id: "om", name: "Optional Mathematics", date: "2026-04-08", start: "08:00", end: "11:00", theoryMax: 75, practicalFull: 25 },
+        { id: "cs", name: "Computer Science", date: "2026-04-09", start: "08:00", end: "10:00", theoryMax: 50, practicalFull: 50 }
+      ];
+
+      function examStartInstant(ex) {
+        const [h, m] = ex.start.split(":").map(Number);
+        const pad = (n) => String(n).padStart(2, "0");
+        return new Date(`${ex.date}T${pad(h)}:${pad(m)}:00+05:45`);
       }
-      .slot-clock-orbit {
-        padding: 1rem 8px 0.9rem;
+
+      function nepalDateString(d) {
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: NEPAL_TZ,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        }).format(d);
       }
-      .slot-clock {
-        gap: 2px;
+
+      function getTodayExamNepal() {
+        const today = nepalDateString(new Date());
+        return exams.find((ex) => ex.date === today) || null;
       }
-      .slot-digits-row {
-        gap: 2px;
+
+      function visiblePastExams() {
+        const today = nepalDateString(new Date());
+        return exams.filter((ex) => ex.date < today);
       }
-      .slot-unit-label {
-        font-size: 9px;
-        letter-spacing: 0.1em;
+
+      function hasAnyExamStarted() {
+        const today = nepalDateString(new Date());
+        return exams.some((ex) => ex.date <= today);
       }
-      .slot-sep {
-        padding: 0;
+
+      function nextExamTarget() {
+        const now = Date.now();
+        for (const ex of exams) {
+          const t = examStartInstant(ex).getTime();
+          if (t > now) return { exam: ex, targetMs: t };
+        }
+        return null;
       }
+
+      function marksInputUnlocked(ex) {
+        return nepalDateString(new Date()) > ex.date;
+      }
+
+      function gpaSectionVisible() {
+        return nepalDateString(new Date()) > LAST_EXAM_DATE;
+      }
+
+      function loadMarks() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+          return {};
+        }
+      }
+
+      function saveMarkForSubject(id, value) {
+        const m = loadMarks();
+        m[id] = value;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(m));
+        } catch (e) {}
+      }
+
+      function parseTheory(ex, raw) {
+        if (raw == null || String(raw).trim() === "") return NaN;
+        const t = parseFloat(String(raw).trim());
+        if (!Number.isFinite(t)) return NaN;
+        return Math.max(0, Math.min(ex.theoryMax, t));
+      }
+
+      function formatTotalOutOf100(n) {
+        if (!Number.isFinite(n)) return "—";
+        return Number.isInteger(n) ? String(n) : String(Math.round(n * 10) / 10);
+      }
+
+      function gradeFromTotal(total) {
+        if (!Number.isFinite(total)) return { grade: "—", gpa: NaN };
+        if (total >= 90) return { grade: "A+", gpa: 4.0 };
+        if (total >= 80) return { grade: "A", gpa: 3.6 };
+        if (total >= 70) return { grade: "B+", gpa: 3.2 };
+        if (total >= 60) return { grade: "B", gpa: 2.8 };
+        if (total >= 50) return { grade: "C+", gpa: 2.4 };
+        if (total >= 40) return { grade: "C", gpa: 2.0 };
+        if (total >= 35) return { grade: "D", gpa: 1.6 };
+        return { grade: "NG", gpa: 0.0 };
+      }
+
+      function updateGpa() {
+        const section = document.getElementById("gpaSection");
+        const overallEl = document.getElementById("gpaOverall");
+        const tbody = document.getElementById("gpaBody");
+        const warnEl = document.getElementById("gpaWarning");
+        const incompleteEl = document.getElementById("gpaIncomplete");
+        const celebrateEl = document.getElementById("gpaCelebrate");
+        if (!gpaSectionVisible()) {
+          section.classList.remove("visible");
+          return;
+        }
+        section.classList.add("visible");
+        tbody.innerHTML = "";
+        const marks = loadMarks();
+        let allFilled = true;
+        let anyNg = false;
+        const gpas = [];
+        for (const ex of exams) {
+          const theory = parseTheory(ex, marks[ex.id]);
+          if (!Number.isFinite(theory)) allFilled = false;
+          const total = Number.isFinite(theory) ? theory + ex.practicalFull : NaN;
+          const g = gradeFromTotal(total);
+          if (g.grade === "NG") anyNg = true;
+          if (Number.isFinite(g.gpa)) gpas.push(g.gpa);
+          const tr = document.createElement("tr");
+          if (g.grade === "NG") tr.classList.add("ng");
+          const tdName = document.createElement("td");
+          tdName.textContent = ex.name;
+          const tdTot = document.createElement("td");
+          tdTot.textContent = Number.isFinite(total) ? formatTotalOutOf100(total) + " / 100" : "—";
+          const tdGr = document.createElement("td");
+          tdGr.textContent = Number.isFinite(total) ? g.grade : "—";
+          const tdGp = document.createElement("td");
+          tdGp.textContent = Number.isFinite(g.gpa) ? g.gpa.toFixed(1) : "—";
+          tr.appendChild(tdName);
+          tr.appendChild(tdTot);
+          tr.appendChild(tdGr);
+          tr.appendChild(tdGp);
+          tbody.appendChild(tr);
+        }
+        if (!allFilled) {
+          incompleteEl.style.display = "block";
+          incompleteEl.textContent =
+            "Enter theory marks for all subjects in Past exams to see your estimated overall GPA.";
+          overallEl.textContent = "—";
+          warnEl.style.display = "none";
+          celebrateEl.classList.add("hidden");
+          return;
+        }
+        incompleteEl.style.display = "none";
+        const avg = gpas.reduce(function (s, x) {
+          return s + x;
+        }, 0) / exams.length;
+        overallEl.textContent = "Estimated GPA: " + avg.toFixed(2);
+        if (anyNg) {
+          warnEl.style.display = "block";
+          warnEl.textContent =
+            "Warning: one or more subjects are NG (Not Graded) at this predicted total. This is an estimate only.";
+        } else {
+          warnEl.style.display = "none";
+        }
+        if (avg >= 3.75 && !anyNg) {
+          celebrateEl.classList.remove("hidden");
+          celebrateEl.textContent =
+            "Outstanding — your predicted GPA is 3.75 or above. Congratulations!";
+        } else {
+          celebrateEl.classList.add("hidden");
+        }
+      }
+
+      function formatExamDateLabel(ex) {
+        const d = examStartInstant(ex);
+        return d.toLocaleDateString(undefined, {
+          timeZone: NEPAL_TZ,
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric"
+        });
+      }
+
+      /* ---- Slot / rolling digit clock ---- */
+      const digitConfigs = [
+        { id: "d0" },
+        { id: "d1" },
+        { id: "d2" },
+        { id: "h0" },
+        { id: "h1" },
+        { id: "m0" },
+        { id: "m1" },
+        { id: "s0" },
+        { id: "s1" }
+      ];
+
+      const GLOW_IDS = { h0: true, h1: true, m0: true, m1: true, s0: true, s1: true };
+
+      const slotState = {};
+      let slotClockNeedsFirstPaint = true;
+
+      function digitStripHTML() {
+        var html = "";
+        for (var i = 0; i < 10; i++) html += "<span>" + i + "</span>";
+        return html;
+      }
+
+      function digitCardHTML() {
+        return (
+          '<div class="slot-digit-card">' +
+          '<div class="slot-card-shade" aria-hidden="true"></div>' +
+          '<div class="slot-window"><div class="slot-strip">' +
+          digitStripHTML() +
+          "</div></div>" +
+          "</div>"
+        );
+      }
+
+      function setStripIndexFromChar(st, char, updateValue) {
+        var idx = parseInt(char, 10);
+        if (!Number.isFinite(idx) || idx < 0 || idx > 9) return;
+        st.strip.style.setProperty("--slot-index", String(idx));
+        if (updateValue !== false) st.value = String(char);
+      }
+
+      function snapStrip(st) {
+        var idx = parseInt(st.value, 10);
+        if (!Number.isFinite(idx) || idx < 0 || idx > 9) return;
+        st.strip.style.transition = "none";
+        st.strip.style.removeProperty("transform");
+        st.strip.style.setProperty("--slot-index", String(idx));
+        void st.strip.offsetWidth;
+        st.strip.style.removeProperty("transition");
+      }
+
+      function buildSlotClock() {
+        var root = document.getElementById("slotClock");
+        root.innerHTML = "";
+
+        function addUnit(digitIds, label) {
+          var unit = document.createElement("div");
+          unit.className = "slot-unit";
+          var row = document.createElement("div");
+          row.className = "slot-digits-row";
+          digitIds.forEach(function (id) {
+            var wrap = document.createElement("div");
+            wrap.className = "slot-digit";
+            wrap.dataset.slotId = id;
+            wrap.innerHTML = digitCardHTML();
+            row.appendChild(wrap);
+            var card = wrap.querySelector(".slot-digit-card");
+            var strip = wrap.querySelector(".slot-strip");
+            slotState[id] = {
+              wrap: wrap,
+              card: card,
+              strip: strip,
+              value: "0",
+              isAnimating: false
+            };
+          });
+          unit.appendChild(row);
+          var lbl = document.createElement("div");
+          lbl.className = "slot-unit-label";
+          lbl.textContent = label;
+          unit.appendChild(lbl);
+          root.appendChild(unit);
+        }
+
+        addUnit(["d0", "d1", "d2"], "Days");
+        var sep1 = document.createElement("span");
+        sep1.className = "slot-sep";
+        sep1.textContent = ":";
+        root.appendChild(sep1);
+        addUnit(["h0", "h1"], "Hrs");
+        var sep2 = document.createElement("span");
+        sep2.className = "slot-sep";
+        sep2.textContent = ":";
+        root.appendChild(sep2);
+        addUnit(["m0", "m1"], "Min");
+        var sep3 = document.createElement("span");
+        sep3.className = "slot-sep";
+        sep3.textContent = ":";
+        root.appendChild(sep3);
+        addUnit(["s0", "s1"], "Sec");
+      }
+
+      function setDigitImmediate(id, char) {
+        var st = slotState[id];
+        if (!st) return;
+        st.isAnimating = false;
+        st.card.classList.remove("slot-digit-card--glow");
+        st.strip.style.transition = "none";
+        st.strip.style.removeProperty("transform");
+        setStripIndexFromChar(st, char, true);
+        void st.strip.offsetWidth;
+        st.strip.style.removeProperty("transition");
+      }
+
+      function rollDigitTo(id, newChar) {
+        var st = slotState[id];
+        if (!st || newChar === st.value) return;
+        if (st.isAnimating) return;
+
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          setDigitImmediate(id, newChar);
+          return;
+        }
+
+        st.isAnimating = true;
+        if (GLOW_IDS[id]) st.card.classList.add("slot-digit-card--glow");
+
+        st.strip.style.removeProperty("transform");
+        setStripIndexFromChar(st, newChar, false);
+
+        var settled = false;
+        var fallbackId = null;
+
+        function settle() {
+          if (settled) return;
+          settled = true;
+          if (fallbackId != null) clearTimeout(fallbackId);
+          st.strip.removeEventListener("transitionend", onEnd);
+          st.value = newChar;
+          snapStrip(st);
+          st.isAnimating = false;
+          st.card.classList.remove("slot-digit-card--glow");
+        }
+
+        function onEnd(e) {
+          if (e.target !== st.strip) return;
+          var pn = e.propertyName;
+          if (pn !== "transform" && pn !== "-webkit-transform") return;
+          settle();
+        }
+
+        fallbackId = setTimeout(settle, 450);
+        st.strip.addEventListener("transitionend", onEnd, { once: true });
+      }
+
+      function secondsToDigitMap(totalSeconds) {
+        var sec = Math.max(0, Math.floor(totalSeconds));
+        var days = Math.floor(sec / 86400);
+        var hours = Math.floor((sec % 86400) / 3600);
+        var minutes = Math.floor((sec % 3600) / 60);
+        var seconds = sec % 60;
+        var ds = String(Math.min(days, 999)).padStart(3, "0");
+        var hs = String(hours).padStart(2, "0");
+        var ms = String(minutes).padStart(2, "0");
+        var ss = String(seconds).padStart(2, "0");
+        return {
+          d0: ds[0],
+          d1: ds[1],
+          d2: ds[2],
+          h0: hs[0],
+          h1: hs[1],
+          m0: ms[0],
+          m1: ms[1],
+          s0: ss[0],
+          s1: ss[1]
+        };
+      }
+
+      function updateSlotClock(totalSeconds) {
+        var map = secondsToDigitMap(totalSeconds);
+        digitConfigs.forEach(function (cfg) {
+          rollDigitTo(cfg.id, map[cfg.id]);
+        });
+      }
+
+      function initSlotDigitsFirstRun(totalSeconds) {
+        var map = secondsToDigitMap(totalSeconds);
+        Object.keys(map).forEach(function (id) {
+          setDigitImmediate(id, map[id]);
+        });
+      }
+
+      function syncColonPulse() {
+        var ms = Date.now() % 1000;
+        var delay = -ms / 1000;
+        document.querySelectorAll(".slot-sep").forEach(function (el) {
+          el.style.animationDelay = delay + "s";
+        });
+      }
+
+      /* ---- Schedule UI ---- */
+      function renderExamCard(ex, opts) {
+        const optsRef = opts || {};
+        const start = examStartInstant(ex);
+        const dateStr = start.toLocaleDateString(undefined, {
+          timeZone: NEPAL_TZ,
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric"
+        });
+        const card = document.createElement("article");
+        card.className = "exam-card" + (optsRef.hero ? " is-today-hero" : "");
+        card.innerHTML =
+          '<div class="exam-card-head">' +
+          '<div>' +
+          (optsRef.badge ? '<span class="badge-today">' + optsRef.badge + "</span>" : "") +
+          '<div class="exam-date">' + dateStr + "</div>" +
+          "<h3>" + ex.name + "</h3>" +
+          '<div class="exam-time">' + ex.start + " – " + ex.end + " NPT</div>" +
+          "</div></div>";
+        if (marksInputUnlocked(ex)) {
+          const marks = loadMarks();
+          const ph =
+            ex.id === "cs"
+              ? "Enter theory marks (out of 50)"
+              : "Enter theory marks (out of 75)";
+          const wrap = document.createElement("div");
+          wrap.className = "exam-marks";
+          const lab = document.createElement("label");
+          lab.setAttribute("for", "theory-" + ex.id);
+          lab.textContent = "Theory (practical +" + ex.practicalFull + " added automatically)";
+          const inp = document.createElement("input");
+          inp.type = "text";
+          inp.inputMode = "decimal";
+          inp.id = "theory-" + ex.id;
+          inp.placeholder = ph;
+          inp.setAttribute("autocomplete", "off");
+          const raw = marks[ex.id];
+          if (raw != null && String(raw).trim() !== "") inp.value = String(raw);
+          const totalEl = document.createElement("div");
+          totalEl.className = "exam-total";
+          function refreshTotal() {
+            const theory = parseTheory(ex, inp.value);
+            if (!Number.isFinite(theory)) {
+              totalEl.textContent = "Total — / 100";
+              return;
+            }
+            const full = theory + ex.practicalFull;
+            totalEl.textContent = "Total: " + formatTotalOutOf100(full) + " / 100";
+          }
+          inp.addEventListener("input", function () {
+            saveMarkForSubject(ex.id, inp.value);
+            refreshTotal();
+            updateGpa();
+          });
+          wrap.appendChild(lab);
+          wrap.appendChild(inp);
+          wrap.appendChild(totalEl);
+          card.appendChild(wrap);
+          refreshTotal();
+        }
+        return card;
+      }
+
+      function updateSchedule() {
+        const scheduleBlock = document.getElementById("scheduleBlock");
+        const todayHero = document.getElementById("todayHero");
+        const pastSection = document.getElementById("pastSection");
+        const pastCards = document.getElementById("pastCards");
+
+        const te = getTodayExamNepal();
+        const past = visiblePastExams();
+
+        if (!hasAnyExamStarted()) {
+          scheduleBlock.classList.add("hidden");
+          updateGpa();
+          return;
+        }
+        scheduleBlock.classList.remove("hidden");
+
+        if (te) {
+          todayHero.classList.remove("hidden");
+          document.getElementById("today-hero-title").textContent = te.name;
+          document.getElementById("todayHeroDate").textContent = formatExamDateLabel(te);
+          document.getElementById("todayHeroTime").textContent = te.start + " – " + te.end + " NPT";
+        } else {
+          todayHero.classList.add("hidden");
+        }
+
+        pastCards.innerHTML = "";
+        if (past.length) {
+          pastSection.classList.remove("hidden");
+          past.forEach((ex) => pastCards.appendChild(renderExamCard(ex)));
+        } else {
+          pastSection.classList.add("hidden");
+        }
+        updateGpa();
+      }
+
+      function tickCountdown() {
+        const active = document.getElementById("countdownActive");
+        const done = document.getElementById("countdownDone");
+        const nextName = document.getElementById("nextExamName");
+        const nextMeta = document.getElementById("nextExamMeta");
+        const n = nextExamTarget();
+
+        if (!n) {
+          active.style.display = "none";
+          done.style.display = "block";
+          updateSchedule();
+          updateGpa();
+          return;
+        }
+        active.style.display = "block";
+        done.style.display = "none";
+
+        const diffMs = n.targetMs - Date.now();
+        const totalSec = diffMs / 1000;
+
+        if (totalSec <= 0) {
+          initSlotDigitsFirstRun(0);
+          updateSchedule();
+          slotClockNeedsFirstPaint = true;
+          return;
+        }
+
+        if (slotClockNeedsFirstPaint) {
+          initSlotDigitsFirstRun(totalSec);
+          slotClockNeedsFirstPaint = false;
+        } else {
+          updateSlotClock(totalSec);
+        }
+
+        syncColonPulse();
+
+        nextName.textContent = n.exam.name;
+        nextMeta.textContent =
+          formatExamDateLabel(n.exam) +
+          " · " +
+          n.exam.start +
+          " – " +
+          n.exam.end +
+          " NPT";
+      }
+
+      function init() {
+        buildSlotClock();
+        slotClockNeedsFirstPaint = true;
+        syncColonPulse();
+        tickCountdown();
+        updateSchedule();
+
+        setInterval(tickCountdown, 1000);
+        setInterval(updateSchedule, 60000);
+
+        var resizeT = null;
+        window.addEventListener("resize", function () {
+          clearTimeout(resizeT);
+          resizeT = setTimeout(function () {
+            digitConfigs.forEach(function (cfg) {
+              var st = slotState[cfg.id];
+              if (st && !st.isAnimating) setDigitImmediate(cfg.id, st.value);
+            });
+          }, 120);
+        });
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEE 2082 — Exam Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-deep: #0a0a12;
+      --bg-card: #12121c;
+      --border: rgba(139, 92, 246, 0.22);
+      --text: #e8e6f2;
+      --text-muted: #9894a8;
+      --accent: #8b5cf6;
+      --accent-2: #6366f1;
+      --accent-glow: rgba(139, 92, 246, 0.45);
+      --cyan: #22d3ee;
+      --success: #34d399;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      --slot-w: clamp(32px, 8vw, 80px);
+      --slot-h: clamp(45px, 11vw, 100px);
+      --slot-fs: clamp(24px, 6vw, 64px);
+      --slot-sep-fs: clamp(14px, 3vw, 32px);
+      --slot-gap: clamp(2px, 1vw, 8px);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", system-ui, sans-serif;
+      background: var(--bg-deep);
+      color: var(--text);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .bg-mesh {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.25), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 50%, rgba(139, 92, 246, 0.12), transparent),
+        radial-gradient(ellipse 50% 30% at 0% 80%, rgba(34, 211, 238, 0.08), transparent),
+        var(--bg-deep);
+    }
+
+    .wrap {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 1.25rem max(12px, env(safe-area-inset-left)) 3rem max(12px, env(safe-area-inset-right));
+    }
+
+    header {
+      text-align: center;
+      padding: 1.5rem 0 2rem;
+      animation: fadeDown 0.7s ease-out;
+    }
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    header h1 {
+      margin: 0 0 0.35rem;
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff 0%, #c4b5fd 50%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .countdown-section {
+      margin-bottom: 2.75rem;
+      animation: fadeUp 0.65s ease-out 0.1s both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .countdown-section h2 {
+      margin: 0 0 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* Slot / rolling digit clock — single row */
+    .slot-clock-orbit {
+      box-sizing: border-box;
+      width: 100%;
+      margin: 0 auto 1.25rem;
+      padding: 16px;
+      border-radius: 20px;
+      background: linear-gradient(165deg, rgba(22, 20, 40, 0.55) 0%, rgba(12, 12, 22, 0.4) 100%);
+      border: 1px solid rgba(139, 92, 246, 0.18);
+      box-shadow:
+        0 0 0 1px rgba(99, 102, 241, 0.08),
+        0 0 60px rgba(99, 102, 241, 0.12),
+        0 0 100px rgba(139, 92, 246, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+    }
+
+    .slot-clock-scaler {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .slot-clock {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: var(--slot-gap);
+      flex-shrink: 0;
+    }
+
+    .slot-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.45rem;
+      flex-shrink: 0;
+    }
+    .slot-digits-row {
+      display: flex;
+      gap: var(--slot-gap);
+      flex-shrink: 0;
+    }
+
+    .slot-unit-label {
+      font-size: clamp(8px, 1.8vw, 12px);
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #b4afc9;
+      font-weight: 600;
+    }
+
+    @keyframes slotSepPulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    .slot-sep {
+      font-family: "JetBrains Mono", monospace;
+      font-size: var(--slot-sep-fs);
+      font-weight: 800;
+      color: #c4b8e8;
+      height: var(--slot-h);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      user-select: none;
+      flex-shrink: 0;
+      animation: slotSepPulse 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+    }
+
+    .slot-digit {
+      position: relative;
+      width: var(--slot-w);
+      height: var(--slot-h);
+      flex-shrink: 0;
+    }
+
+    .slot-digit-card {
+      position: absolute;
+      inset: 0;
+      border-radius: 0.45rem;
+      overflow: hidden;
+      border: none;
+      background: linear-gradient(180deg, #1a1828 0%, #0e0e16 50%, #12121c 100%);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+        inset 0 2px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -4px 12px rgba(0, 0, 0, 0.5),
+        0 4px 14px rgba(0, 0, 0, 0.55);
+      transition: box-shadow 0.35s ease;
+    }
+    .slot-digit-card.slot-digit-card--glow {
+      box-shadow:
+        inset 0 0 0 1px rgba(139, 92, 246, 0.5),
+        inset 0 2px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -4px 12px rgba(0, 0, 0, 0.45),
+        0 0 20px rgba(99, 102, 241, 0.35),
+        0 0 36px rgba(139, 92, 246, 0.2),
+        0 4px 14px rgba(0, 0, 0, 0.45);
+    }
+
+    .slot-card-shade {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0.45) 0%,
+        rgba(0, 0, 0, 0.04) 38%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(0, 0, 0, 0.04) 62%,
+        rgba(0, 0, 0, 0.45) 100%
+      );
+      z-index: 0;
+    }
+
+    .slot-window {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .slot-strip {
+      --slot-index: 0;
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      will-change: transform;
+      transform: translateY(calc(-1 * var(--slot-index) * var(--slot-h)));
+      transition: transform 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      backface-visibility: hidden;
+    }
+    .slot-strip span {
+      box-sizing: border-box;
+      flex: 0 0 var(--slot-h);
+      width: 100%;
+      height: var(--slot-h);
+      min-height: var(--slot-h);
+      max-height: var(--slot-h);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "JetBrains Mono", monospace;
+      font-size: var(--slot-fs);
+      font-weight: 900;
+      line-height: var(--slot-h);
+      color: #f4f2ff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .countdown-done {
+      text-align: center;
+      padding: 1.5rem;
+      background: var(--bg-card);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .next-exam-card {
+      max-width: 36rem;
+      margin: 1.25rem auto 0;
+      padding: 1.15rem 1.25rem 1.25rem;
+      text-align: center;
+      border-radius: var(--radius);
+      background: linear-gradient(155deg, rgba(24, 22, 42, 0.95), rgba(14, 14, 26, 0.98));
+      border: 1px solid rgba(139, 92, 246, 0.45);
+      box-shadow:
+        0 0 0 1px rgba(99, 102, 241, 0.15),
+        0 0 32px rgba(99, 102, 241, 0.2),
+        0 0 56px rgba(139, 92, 246, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    .next-exam-badge {
+      display: inline-block;
+      margin-bottom: 0.65rem;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      border-radius: 999px;
+      box-shadow: 0 2px 12px rgba(99, 102, 241, 0.35);
+    }
+    .next-exam-name {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+    .next-exam-meta {
+      margin: 0.5rem 0 0;
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.45;
+      color: #a5b4fc;
+    }
+    .npt-note {
+      margin: 0.35rem 0 0;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      opacity: 0.85;
+    }
+
+    .section-title {
+      margin: 0 0 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .exam-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem 1.25rem;
+      box-shadow: var(--shadow);
+      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+      animation: cardIn 0.5s ease-out both;
+    }
+    .exam-card:nth-child(1) { animation-delay: 0.05s; }
+    .exam-card:nth-child(2) { animation-delay: 0.1s; }
+    .exam-card:nth-child(3) { animation-delay: 0.15s; }
+    .exam-card:nth-child(4) { animation-delay: 0.2s; }
+    .exam-card:nth-child(5) { animation-delay: 0.25s; }
+    .exam-card:nth-child(6) { animation-delay: 0.3s; }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .exam-card.is-today-hero {
+      border-color: rgba(139, 92, 246, 0.65);
+      box-shadow:
+        0 0 28px rgba(139, 92, 246, 0.35),
+        0 0 60px rgba(99, 102, 241, 0.12),
+        var(--shadow);
+      animation: cardGlow 2.5s ease-in-out infinite;
+      padding: 1.35rem 1.4rem;
+    }
+    @keyframes cardGlow {
+      0%, 100% { box-shadow: 0 0 28px rgba(139, 92, 246, 0.35), 0 0 60px rgba(99, 102, 241, 0.08), var(--shadow); }
+      50% { box-shadow: 0 0 40px rgba(139, 92, 246, 0.5), 0 0 80px rgba(99, 102, 241, 0.15), var(--shadow); }
+    }
+
+    .exam-card-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .exam-date {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .exam-time {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .exam-card h3 {
+      margin: 0.25rem 0 0;
+      font-size: 1.15rem;
+      font-weight: 600;
+      flex: 1 1 100%;
+    }
+    .exam-card.is-today-hero h3 {
+      font-size: 1.35rem;
+    }
+    .badge-today {
+      display: inline-block;
+      margin-left: 0.5rem;
+      font-size: 0.65rem;
+      font-weight: 700;
+      vertical-align: middle;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 0.3rem 0.55rem;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+    }
+
+    .exam-marks {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .exam-marks label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+    .exam-marks input {
+      width: 100%;
+      max-width: 200px;
+      padding: 0.55rem 0.65rem;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(18, 18, 30, 0.9);
+      color: var(--text);
+    }
+    .exam-marks input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    }
+    .exam-total {
+      margin-top: 0.5rem;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.9rem;
+      color: #c4b5fd;
+      font-weight: 600;
+    }
+
+    .gpa-section {
+      display: none;
+      margin-top: 2rem;
+      padding: 1.35rem 1.25rem;
+      border-radius: var(--radius);
+      background: linear-gradient(155deg, rgba(20, 18, 36, 0.95), rgba(12, 12, 22, 0.98));
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      box-shadow: var(--shadow);
+    }
+    .gpa-section.visible {
+      display: block;
+    }
+    .gpa-section h2 {
+      margin: 0 0 0.5rem;
+      font-size: 1.15rem;
+    }
+    .gpa-section .gpa-lead {
+      margin: 0 0 1rem;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+    .gpa-overall {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: var(--cyan);
+      margin: 0 0 1rem;
+    }
+    .gpa-table-wrap {
+      overflow-x: auto;
+    }
+    .gpa-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    .gpa-table th,
+    .gpa-table td {
+      padding: 0.55rem 0.45rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .gpa-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .gpa-table tr.ng td {
+      color: #f87171;
+      font-weight: 600;
+    }
+    .gpa-warning {
+      margin-top: 0.75rem;
+      color: #f87171;
+      font-weight: 600;
+      font-size: 0.88rem;
+    }
+    .gpa-incomplete {
+      margin-top: 0.75rem;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+    .gpa-celebrate {
+      margin-top: 1rem;
+      padding: 1rem 1.1rem;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, rgba(52, 211, 153, 0.12), rgba(99, 102, 241, 0.1));
+      border: 1px solid rgba(52, 211, 153, 0.35);
+      color: #6ee7b7;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+    .gpa-celebrate.hidden {
+      display: none;
+    }
+
+    #scheduleBlock.hidden { display: none; }
+    #todayHero.hidden { display: none; }
+    #pastSection.hidden { display: none; }
+
+    footer {
+      margin-top: 2.5rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
     }
 
     @media (prefers-reduced-motion: reduce) {
